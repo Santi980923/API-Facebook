@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Clasificación de Comentarios de Facebook</title>
+  </head>
+  <body>
+    <h1>Clasificación de Comentarios de Facebook</h1>
+    <form method="POST">
+      <label for="page_id">ID de la Página:</label>
+      <input type="text" id="page_id" name="page_id" required /><br /><br />
+      <label for="token">Token de Acceso:</label>
+      <input type="text" id="token" name="token" required /><br /><br />
+      <input type="submit" value="Clasificar" />
+    </form>
+    {% if error %}
+    <p style="color: red">{{ error }}</p>
+    {% endif %}
+  </body>
+</html>
