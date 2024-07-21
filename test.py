@@ -1,7 +1,7 @@
-# Description: This script automates the process of extracting Facebook posts and comments from multiple Facebook pages/groups.
+# Description: This script automates the process of extracting Facebook posts and comments from multiple Facebook pages/groups and classifies comments.
 # Author: harmindesinghnijjar (modified by Assistant)
 # Date: 2023-12-08 (modified 2024-07-20)
-# Version: 1.2.0
+# Version: 1.3.0
 # Usage: python Facebook_automation.py
 
 # Import modules.
@@ -63,6 +63,21 @@ def add_colon_between_names(text):
     str: The modified string with a colon and a space inserted.
     """
     return re.sub(r"([a-z])([A-Z])", r"\1: \2", text)
+
+def classify_comment(comment):
+    """
+    Classifies a comment as negative if it contains specific words, otherwise as other.
+    Args:
+    comment (str): The comment to classify.
+
+    Returns:
+    str: 'negative' if the comment contains specific words, 'other' otherwise.
+    """
+    negative_words = ['ruso', 'payaso', 'circo']
+    lower_comment = comment.lower()
+    if any(word in lower_comment for word in negative_words):
+        return 'negativo'
+    return 'positivo'
 
 # Define a Selenium class to automate the browser.
 class Selenium:
@@ -157,9 +172,9 @@ if __name__ == "__main__":
     selenium = Selenium(driver=chrome_driver)
 
     # Create a single CSV file for all data
-    with open("facebook_posts_all.csv", "w", newline='', encoding="utf-8") as file:
+    with open("facebook_posts_classified.csv", "w", newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
-        writer.writerow(["URL", "Post", "Comments"])  # Write header
+        writer.writerow(["URL", "Post", "Comment", "Classification"])  # Write header
 
         for url in facebook_urls:
             # Open Facebook page or group
@@ -169,12 +184,14 @@ if __name__ == "__main__":
             results = selenium.extract_posts()
 
             # Write the data to the CSV file
-            for post, comments in zip(results["posts"], results["comments"]):
-                writer.writerow([url, post, add_colon_between_names(comments)])
+            for post, comment in zip(results["posts"], results["comments"]):
+                formatted_comment = add_colon_between_names(comment)
+                classification = classify_comment(formatted_comment)
+                writer.writerow([url, post, formatted_comment, classification])
         
-            print(f"Data for {url} saved to facebook_posts_all.csv")
+            print(f"Data for {url} saved to facebook_posts_classified.csv")
 
     # Close the browser
     selenium.close_browser()
 
-print("All data has been saved to facebook_posts_all.csv")
+print("All data has been saved to facebook_posts_classified.csv")
