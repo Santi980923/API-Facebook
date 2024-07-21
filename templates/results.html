@@ -1,49 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Resultados de Búsqueda de Páginas en Boyacá</title>
-</head>
-<body>
-    <h1>Páginas encontradas para "{{ query }} en Boyacá"</h1>
-    {% if pages %}
-        {% for page in pages %}
-            <h2>{{ page.name }}</h2>
-            <p><strong>ID de la Página:</strong> {{ page.id }}</p>
-            <p><strong>Categoría:</strong> {{ page.category }}</p>
-            {% if page.location %}
-                <p><strong>Ubicación:</strong> {{ page.location.city }}, {{ page.location.country }}</p>
-            {% endif %}
-            <a href="https://www.facebook.com/{{ page.id }}" target="_blank">Ver página</a>
-            
-            <h3>Posts recientes:</h3>
-            {% if page.posts %}
-                {% for post in page.posts %}
-                    <div style="margin-left: 20px; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
-                        <p><strong>Fecha:</strong> {{ post.created_time }}</p>
-                        <p><strong>Mensaje:</strong> {{ post.message }}</p>
-                        
-                        <h4>Comentarios:</h4>
-                        {% if post.comments and post.comments.data %}
-                            {% for comment in post.comments.data %}
-                                <div style="margin-left: 20px; border: 1px solid #eee; padding: 5px; margin-bottom: 5px;">
-                                    <p><strong>{{ comment.from.name }}:</strong> {{ comment.message }}</p>
-                                    <p><small>{{ comment.created_time }}</small></p>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <p>No hay comentarios en este post.</p>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p>No se encontraron posts recientes.</p>
-            {% endif %}
-            <hr>
-        {% endfor %}
-    {% else %}
-        <p>No se encontraron páginas para esta búsqueda.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Resultados de Posts y Comentarios</title>
+  </head>
+  <body>
+    <h1>Resultados de Posts y Comentarios</h1>
+    {% for post in posts %}
+    <h2>Post ID: {{ post.id }}</h2>
+    <p><strong>Nombre del Post:</strong> {{ post.message }}</p>
+    <p><strong>Fecha de Creación:</strong> {{ post.created_time }}</p>
+
+    <h3>Comentarios:</h3>
+    {% if post.comments %} {% for comment in post.comments.data %}
+    <p>
+      <strong>Comment ID:</strong> {{ comment.id }}<br />
+      <strong>Created Time:</strong> {{ comment.created_time }}<br />
+      <strong>From:</strong> {{ comment.from.name }}<br />
+      <strong>Message:</strong> {{ comment.message }}
+    </p>
+    {% endfor %} {% else %}
+    <p>No hay comentarios para este post.</p>
     {% endif %}
+    <hr />
+    {% endfor %}
     <a href="/">Volver</a>
-</body>
+  </body>
 </html>
