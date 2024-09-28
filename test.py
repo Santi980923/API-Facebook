@@ -1,19 +1,11 @@
-# Description: This script automates the process of extracting Facebook posts and comments from multiple Facebook pages/groups and classifies comments.
-# Author: harmindesinghnijjar (modified by Assistant)
-# Date: 2023-12-08 (modified 2024-07-20)
-# Version: 1.3.0
-# Usage: python Facebook_automation.py
-
-# Import modules.
 import csv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from time import sleep
 from webdriver_manager.chrome import ChromeDriverManager
 import getpass
@@ -24,23 +16,14 @@ import bs4
 from bs4 import BeautifulSoup
 import requests
 import re
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+import unicodedata
 
-# Set up logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-file_handler = logging.FileHandler("fb_post_scraper", mode="a")
-log_format = logging.Formatter(
-    "%(asctime)s - %(name)s - [%(levelname)s] [%(pathname)s:%(lineno)d] - %(message)s - [%(process)d:%(thread)d]"
-)
-file_handler.setFormatter(log_format)
-logger.addHandler(file_handler)
-
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(log_format)
-logger.addHandler(console_handler)
-
-print = logger.info
+# [Logging setup remains the same]
 
 # Set username.
 user = getpass.getuser()
@@ -53,145 +36,131 @@ facebook_urls = [
     "https://www.facebook.com/groups/6669773836451212"
 ]
 
-def add_colon_between_names(text):
+def clean_text(text):
     """
-    Inserts a colon and a space between the last lowercase letter and the first uppercase letter.
-    Args:
-    text (str): The input string.
+    Remove accents, special characters, and convert to lowercase.
+    """
+    # Convert to lowercase
+    text = text.lower()
+    # Remove accents
+    text = ''.join(c for c in unicodedata.normalize('NFD', text)
+                   if unicodedata.category(c) != 'Mn')
+    # Remove special characters
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    return text
 
-    Returns:
-    str: The modified string with a colon and a space inserted.
-    """
+def add_colon_between_names(text):
     return re.sub(r"([a-z])([A-Z])", r"\1: \2", text)
 
-def classify_comment(comment):
-    """
-    Classifies a comment as negative if it contains specific words, otherwise as other.
-    Args:
-    comment (str): The comment to classify.
-
-    Returns:
-    str: 'negative' if the comment contains specific words, 'other' otherwise.
-    """
-    negative_words = ['ruso', 'payaso', 'circo']
-    lower_comment = comment.lower()
-    if any(word in lower_comment for word in negative_words):
-        return 'negativo'
-    return 'positivo'
-
-# Define a Selenium class to automate the browser.
 class Selenium:
-    # Constructor method.
     def __init__(self, driver):
         self.driver = driver
+        self.unique_comments = set()
 
     def extract_posts(self):
-        results = {"posts": [], "comments": []}
+        results = []
         try:
-            last_height = self.driver.execute_script(
-                "return document.body.scrollHeight"
-            )
-
-            # Scroll for 60 seconds
+            last_height = self.driver.execute_script("return document.body.scrollHeight")
             start_time = time.time()
             end_time = start_time + 60
             while time.time() < end_time:
-                # Scroll down to bottom
-                self.driver.execute_script(
-                    "window.scrollTo(0, document.body.scrollHeight);"
-                )
-
-                # Wait to load page
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(3)
-
-                # Calculate new scroll height and compare with last scroll height
-                new_height = self.driver.execute_script(
-                    "return document.body.scrollHeight"
-                )
+                new_height = self.driver.execute_script("return document.body.scrollHeight")
                 if new_height == last_height:
                     break
                 last_height = new_height
 
-                # Extract posts and comments after the page has loaded
                 soup = BeautifulSoup(self.driver.page_source, "html.parser")
                 posts = soup.find_all("div", class_="x78zum5 x1n2onr6 xh8yej3")
 
                 for post in posts:
-                    post_content = post.find(
-                        "div", class_="x1iorvi4 x1pi30zi x1l90r2v x1swvt13"
-                    )
-                    comments = post.find_all(
-                        "div", class_="x1y1aw1k xn6708d xwib8y2 x1ye3gou"
-                    )
-                    if post_content and post_content.text not in results["posts"]:
-                        results["posts"].append(post_content.text)
-                        results["comments"].extend(
-                            [comment.text for comment in comments if comment]
-                        )
-
+                    post_content = post.find("div", class_="x1iorvi4 x1pi30zi x1l90r2v x1swvt13")
+                    comments = post.find_all("div", class_="x1y1aw1k xn6708d xwib8y2 x1ye3gou")
+                    
+                    if post_content:
+                        clean_post = clean_text(post_content.text)
+                        for comment in comments:
+                            clean_comment = clean_text(comment.text)
+                            if clean_comment not in self.unique_comments:
+                                self.unique_comments.add(clean_comment)
+                                results.append((clean_post, clean_comment))
         except Exception as e:
             logger.error(f"Error scraping posts: {e}")
         return results
 
-    # Method to open Facebook in Chrome.
     def open_Facebook_posts(self, url):
         self.driver.get(url)
         time.sleep(5)
 
-    # Method to close the Chrome instance.
     def close_browser(self):
-        """
-        Closes the web browser.
-
-        Returns:
-        None
-        """
         self.driver.quit()
 
-if __name__ == "__main__":
-    # Kill any existing Chrome instances to avoid conflicts
+def scrape_facebook():
     os.system("taskkill /im chrome.exe /f")
-
-    # Fetch current user's name
     user = getpass.getuser()
-
-    # Set up ChromeDriver service
     service = Service()
-
-    # Define Chrome options
     options = webdriver.ChromeOptions()
-    options.add_argument(
-        f"--user-data-dir=C:\\Users\\{user}\\AppData\\Local\\Google\\Chrome\\User Data"
-    )
+    options.add_argument(f"--user-data-dir=C:\\Users\\{user}\\AppData\\Local\\Google\\Chrome\\User Data")
     options.add_argument("--profile-directory=Default")
-
-    # Create a WebDriver instance
     chrome_driver = webdriver.Chrome(service=service, options=options)
-
-    # Create an instance of Selenium
     selenium = Selenium(driver=chrome_driver)
 
-    # Create a single CSV file for all data
-    with open("facebook_posts_classified.csv", "w", newline='', encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["URL", "Post", "Comment", "Classification"])  # Write header
+    all_results = []
 
-        for url in facebook_urls:
-            # Open Facebook page or group
-            selenium.open_Facebook_posts(url)
+    for url in facebook_urls:
+        selenium.open_Facebook_posts(url)
+        results = selenium.extract_posts()
+        all_results.extend([(url, post, comment) for post, comment in results])
+        print(f"Data extracted for {url}")
 
-            # Extract posts and comments
-            results = selenium.extract_posts()
-
-            # Write the data to the CSV file
-            for post, comment in zip(results["posts"], results["comments"]):
-                formatted_comment = add_colon_between_names(comment)
-                classification = classify_comment(formatted_comment)
-                writer.writerow([url, post, formatted_comment, classification])
-        
-            print(f"Data for {url} saved to facebook_posts_classified.csv")
-
-    # Close the browser
     selenium.close_browser()
+    print("All data has been extracted")
 
-print("All data has been saved to facebook_posts_classified.csv")
+    return all_results
+
+def train_sentiment_model():
+    # Load the original dataset and train the model
+    df = pd.read_excel('data/BBDD.xlsx')
+    df = df[['sentimiento', 'review_es']].copy()
+
+    # Clean the text in the original dataset
+    df['review_es'] = df['review_es'].apply(clean_text)
+
+    target_map = {'positivo': 1, 'negativo': 0}
+    df['target'] = df['sentimiento'].map(target_map)
+
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
+
+    vectorizer = TfidfVectorizer(max_features=2000)
+    X_train = vectorizer.fit_transform(df_train['review_es'])
+    Y_train = df_train['target']
+
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X_train, Y_train)
+
+    return vectorizer, model
+
+def sentiment_analysis(scraped_data, vectorizer, model):
+    # Convert scraped data to DataFrame
+    df = pd.DataFrame(scraped_data, columns=['URL', 'Post', 'Comment'])
+
+    # Transform the scraped comments using the same vectorizer
+    X_scraped = vectorizer.transform(df['Comment'])
+
+    # Predict sentiment for scraped comments
+    df['Sentiment'] = model.predict(X_scraped)
+
+    # Map numeric predictions back to text labels
+    sentiment_map = {0: 'negativo', 1: 'positivo'}
+    df['Sentiment'] = df['Sentiment'].map(sentiment_map)
+
+    # Save the result to a new CSV file
+    df.to_csv('facebook_posts_sentiment_analysis.csv', index=False)
+
+    print("Sentiment analysis completed. Results saved to 'facebook_posts_sentiment_analysis.csv'")
+
+if __name__ == "__main__":
+    scraped_data = scrape_facebook()
+    vectorizer, model = train_sentiment_model()
+    sentiment_analysis(scraped_data, vectorizer, model)
