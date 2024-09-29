@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from flask_cors import CORS  # Para manejar las solicitudes CORS
 from modules.facebook_scraper import run_scraper_and_analysis
 import io
 import pandas as pd
@@ -11,9 +10,6 @@ app.config['SECRET_KEY'] = 'tu_clave_secreta_muy_segura'  # Cambia esto por una 
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-
-# Habilitar CORS
-CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Base de datos de usuarios simulada para la autenticación
 users = {

@@ -6,7 +6,7 @@ import re
 from transformers import pipeline
 
 # Token de acceso de la Graph API de Facebook
-access_token = 'EAAGdiBedtwwBOxnDJg4M5BipNRGZAedOJjETEvWpVyZC61J70Mb8J2vrPKVZAqdrjylKMNLRy3C2tjYaSDIoWz3QfLCri6gUQBDV5GksgkR7ZAA5fEILAFVeI93d2amYs8PZB5ViQZCgobCaPBKiTOi5KbPiflKHlBuaWQsLpMKN9nLUp1zqEqd0Hpgb6L'
+access_token = 'EAAGdiBedtwwBOZBbi012VZAkTuh8ro8dJZB4UL5YgxpikWTT2HRNzZBL5BK86cxsnoGQwlpVDzpZCk0QHLpDx1Dou8prKEPUcMQwvRJcVNCB3GOQVjEsvp5ZCz33HWZAR9t2IASWHrXofGy0sPNBZCp1AySyoxI8BtztYDuyqVBI81HbJZBjyy5W7lWZApkSyh'
 page_id = '392880987233705'
 
 # URL base para acceder a la API de Graph
@@ -98,9 +98,5 @@ def run_scraper_and_analysis():
     # Paso 2: Realizar el análisis de sentimientos en los comentarios extraídos usando Hugging Face
     results = sentiment_analysis_with_transformers(scraped_data)
 
-    # Paso 3: Guardar los resultados en un archivo CSV
-    results.to_csv('facebook_posts_sentiment_analysis.csv', index=False)
-    print("Análisis completado. Resultados guardados en 'facebook_posts_sentiment_analysis.csv'.")
-
-if __name__ == "__main__":
-    run_scraper_and_analysis()
+    # Devolver los resultados como un DataFrame
+    return results
