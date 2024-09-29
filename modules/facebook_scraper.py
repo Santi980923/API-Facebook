@@ -1,11 +1,10 @@
 import requests
-import json
 import pandas as pd
 import unicodedata
 import re
-from transformers import pipeline
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-# Token de acceso de la Graph API de Facebook
+# Token de acceso de la Graph API de Facebook (Asegúrate de que esté actualizado)
 access_token = 'EAAGdiBedtwwBOZBbi012VZAkTuh8ro8dJZB4UL5YgxpikWTT2HRNzZBL5BK86cxsnoGQwlpVDzpZCk0QHLpDx1Dou8prKEPUcMQwvRJcVNCB3GOQVjEsvp5ZCz33HWZAR9t2IASWHrXofGy0sPNBZCp1AySyoxI8BtztYDuyqVBI81HbJZBjyy5W7lWZApkSyh'
 page_id = '392880987233705'
 
@@ -29,6 +28,9 @@ def clean_text(text):
     return text
 
 def get_facebook_posts_and_comments():
+    """
+    Realiza la solicitud a la API de Facebook y obtiene los posts junto con sus comentarios.
+    """
     all_data = []
     try:
         response = requests.get(base_url, params=params)
@@ -67,36 +69,50 @@ def get_facebook_posts_and_comments():
     
     return all_data
 
-def sentiment_analysis_with_transformers(scraped_data):
-    # Usar el modelo de Hugging Face preentrenado para análisis de sentimientos
-    sentiment_pipeline = pipeline("sentiment-analysis")
+def analyze_sentiment(text):
+    """
+    Usa VADER para analizar el sentimiento del texto.
+    """
+    analyzer = SentimentIntensityAnalyzer()
+    sentiment_dict = analyzer.polarity_scores(text)
+    
+    compound = sentiment_dict['compound']
 
+    # Determinar si el sentimiento es positivo, neutro o negativo
+    if compound >= 0.05:
+        return "Positivo"
+    elif compound <= -0.05:
+        return "Negativo"
+    else:
+        return "Neutro"
+
+def run_scraper_and_analysis():
+    """
+    Realiza el scraping de los comentarios de Facebook y analiza los sentimientos.
+    """
+    # Extraer los datos de Facebook
+    scraped_data = get_facebook_posts_and_comments()
+
+    # Crear una lista para almacenar los resultados
     comments = []
     for post in scraped_data:
         for comment in post['comments']:
+            clean_comment = clean_text(comment['comment_message'])
+            sentiment = analyze_sentiment(clean_comment)
             comments.append({
                 'Post': post['post_message'],
                 'Comment': comment['comment_message'],
                 'CommentFrom': comment['comment_from'],
-                'CreatedTime': comment['comment_created_time']
+                'CreatedTime': comment['comment_created_time'],
+                'Sentiment': sentiment  # Resultado del análisis de sentimiento
             })
 
+    # Convertir la lista en un DataFrame de Pandas
     df = pd.DataFrame(comments)
-
-    # Limpiar los comentarios
-    df['Comment'] = df['Comment'].apply(clean_text)
-
-    # Realizar el análisis de sentimientos
-    df['Sentiment'] = df['Comment'].apply(lambda x: sentiment_pipeline(x)[0]['label'])
 
     return df
 
-def run_scraper_and_analysis():
-    # Paso 1: Extraer los datos de Facebook usando la API de Graph
-    scraped_data = get_facebook_posts_and_comments()
-
-    # Paso 2: Realizar el análisis de sentimientos en los comentarios extraídos usando Hugging Face
-    results = sentiment_analysis_with_transformers(scraped_data)
-
-    # Devolver los resultados como un DataFrame
-    return results
+# Ejemplo de uso
+if __name__ == '__main__':
+    result_df = run_scraper_and_analysis()
+    print(result_df)
