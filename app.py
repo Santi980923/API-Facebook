@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from modules.facebook_scraper import analyze_sentiment_from_csv
-import io
 import pandas as pd
 import os
 
@@ -109,9 +108,8 @@ def index():
 @login_required
 def download_results():
     # Asumiendo que 'combined_df' es un DataFrame que almacenas globalmente o que puedes recuperar
-    if 'combined_df' in globals():
-        combined_df = globals()['combined_df']  # Recupera el DataFrame global
-    else:
+    global combined_df  # Asegúrate de que combined_df es accesible
+    if combined_df is None:
         flash('No hay resultados disponibles para descargar.', 'warning')
         return redirect(url_for('index'))
     
