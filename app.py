@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask import Flask, render_template, request, redirect, url_for, flash, make_response
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
 from flask_bcrypt import Bcrypt
 from modules.facebook_scraper import analyze_sentiment_from_csv
 import pandas as pd
@@ -105,19 +105,23 @@ def index():
     return render_template('index.html')
 
 @app.route('/download_results', methods=['GET'])
-@login_required
 def download_results():
-    # Asumiendo que 'combined_df' es un DataFrame que almacenas globalmente o que puedes recuperar
-    global combined_df  # Asegúrate de que combined_df es accesible
-    if combined_df is None:
+    # Verificar si hay resultados disponibles
+    if 'combined_df' in globals():
+        combined_df = globals()['combined_df']
+    else:
         flash('No hay resultados disponibles para descargar.', 'warning')
         return redirect(url_for('index'))
     
-    # Guarda el DataFrame como un archivo CSV
-    csv_file_path = 'resultados.csv'
-    combined_df.to_csv(csv_file_path, index=False)
-
-    return send_file(csv_file_path, as_attachment=True)
+    # Convierte el DataFrame a CSV
+    csv = combined_df.to_csv(index=False)
+    
+    # Crea la respuesta para descargar el archivo CSV
+    response = make_response(csv)
+    response.headers["Content-Disposition"] = "attachment; filename=resultados.csv"
+    response.headers["Content-type"] = "text/csv"
+    
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)
