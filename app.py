@@ -7,12 +7,10 @@ import pandas as pd
 import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Cambia esto a una clave segura
+app.secret_key = os.urandom(24)  # Cambia esto a una clave segura
 UPLOAD_FOLDER = 'uploads'  # Define la carpeta para subir archivos
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-
-app.config['SECRET_KEY'] = 'tu_clave_secreta_muy_segura'  # Cambia esto por una clave secreta real
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -23,6 +21,8 @@ users = {
         "password": bcrypt.generate_password_hash("password").decode('utf-8')
     }
 }
+
+global combined_df  # Define combined_df como global
 
 class User(UserMixin):
     pass
@@ -91,9 +91,12 @@ def index():
                 results.append(result_df)  # Guardar el resultado
             except Exception as e:
                 flash(f'Ocurrió un error al procesar {file.filename}: {str(e)}', 'danger')
+            finally:
+                os.remove(file_path)  # Limpiar el archivo después de procesar
 
         # Combinar todos los resultados en un solo DataFrame, si es necesario
         if results:
+            global combined_df  # Define combined_df como global
             combined_df = pd.concat(results, ignore_index=True)
             flash('Análisis realizado con éxito.', 'success')
             return render_template('result.html', tables=[combined_df.to_html(classes='data')])
@@ -102,8 +105,21 @@ def index():
 
     return render_template('index.html')
 
+@app.route('/download_results', methods=['GET'])
+@login_required
+def download_results():
+    # Asumiendo que 'combined_df' es un DataFrame que almacenas globalmente o que puedes recuperar
+    if 'combined_df' in globals():
+        combined_df = globals()['combined_df']  # Recupera el DataFrame global
+    else:
+        flash('No hay resultados disponibles para descargar.', 'warning')
+        return redirect(url_for('index'))
+    
+    # Guarda el DataFrame como un archivo CSV
+    csv_file_path = 'resultados.csv'
+    combined_df.to_csv(csv_file_path, index=False)
 
-
+    return send_file(csv_file_path, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True)
