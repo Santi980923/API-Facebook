@@ -1,3 +1,4 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,7 +21,11 @@
             {% endif %}
         {% endwith %}
         
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="file" class="form-label">Subir archivos CSV:</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".csv" multiple required>
+            </div>
             <button type="submit" class="btn btn-primary">Ejecutar Scraper y Análisis</button>
         </form>
         
@@ -30,3 +35,4 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+

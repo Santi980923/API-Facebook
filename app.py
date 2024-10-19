@@ -1,11 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from modules.facebook_scraper import run_scraper_and_analysis
+from modules.facebook_scraper import analyze_sentiment_from_csv
 import io
 import pandas as pd
+import os
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Cambia esto a una clave segura
+UPLOAD_FOLDER = 'uploads'  # Define la carpeta para subir archivos
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
 app.config['SECRET_KEY'] = 'tu_clave_secreta_muy_segura'  # Cambia esto por una clave secreta real
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
@@ -50,26 +56,54 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/', methods=['GET', 'POST'])
-@login_required
 def index():
     if request.method == 'POST':
-        # Ejecutar el scraper y análisis de sentimientos
-        results = run_scraper_and_analysis()
+        # Verificar si se subieron archivos
+        if 'file' not in request.files:
+            flash('No se ha subido ningún archivo.', 'danger')
+            return redirect(request.url)
 
-        # Convertir el DataFrame a CSV y guardarlo en memoria
-        csv_buffer = io.StringIO()
-        results.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)  # Ir al principio del archivo en memoria
+        files = request.files.getlist('file')  # Obtener la lista de archivos
 
-        # Preparar el archivo CSV para descarga
-        return send_file(
-            io.BytesIO(csv_buffer.getvalue().encode()),
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name='facebook_posts_sentiment_analysis.csv'  # Cambiado a download_name
-        )
+        # Verificar que al menos un archivo fue seleccionado
+        if not files:
+            flash('No se ha seleccionado ningún archivo.', 'danger')
+            return redirect(request.url)
+
+        # Analizar cada archivo CSV
+        results = []
+        for file in files:
+            if file.filename == '':
+                flash('Uno o más archivos no tienen nombre.', 'danger')
+                continue  # Ignorar archivos sin nombre
+
+            if not file.filename.endswith('.csv'):
+                flash(f'El archivo {file.filename} no es un CSV.', 'danger')
+                continue  # Ignorar archivos que no son CSV
+
+            # Guardar el archivo
+            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+            file.save(file_path)
+
+            # Analizar el archivo CSV
+            try:
+                result_df = analyze_sentiment_from_csv(file_path)
+                results.append(result_df)  # Guardar el resultado
+            except Exception as e:
+                flash(f'Ocurrió un error al procesar {file.filename}: {str(e)}', 'danger')
+
+        # Combinar todos los resultados en un solo DataFrame, si es necesario
+        if results:
+            combined_df = pd.concat(results, ignore_index=True)
+            flash('Análisis realizado con éxito.', 'success')
+            return render_template('result.html', tables=[combined_df.to_html(classes='data')])
+        else:
+            flash('No se procesaron archivos válidos.', 'warning')
 
     return render_template('index.html')
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
